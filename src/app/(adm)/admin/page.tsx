@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Menu, X } from 'lucide-react'
 
 interface User {
@@ -67,13 +67,7 @@ export default function AdminPage() {
     }
   }, [session, status, router])
 
-  useEffect(() => {
-    if (session?.user.role === 'ADMIN') {
-      fetchData()
-    }
-  }, [session, activeTab])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       // Fetch users
       const usersResponse = await fetch('/api/users')
@@ -127,7 +121,13 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Erro ao buscar dados:', error)
     }
-  }
+  }, [users])
+
+  useEffect(() => {
+    if (session?.user.role === 'ADMIN') {
+      fetchData()
+    }
+  }, [session, activeTab, fetchData])
 
   const handleSuccess = () => {
     fetchData()

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface Activity {
   id: string
@@ -57,13 +57,7 @@ export default function UserPage() {
     }
   }, [session, status, router])
 
-  useEffect(() => {
-    if (session?.user.role === 'DESBRAVADOR') {
-      fetchUserData()
-    }
-  }, [session, activeTab])
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       // Fetch available activities
       const activitiesResponse = await fetch('/api/activities')
@@ -137,7 +131,13 @@ export default function UserPage() {
     } catch (error) {
       console.error('Erro ao buscar dados:', error)
     }
-  }
+  }, [session])
+
+  useEffect(() => {
+    if (session?.user.role === 'DESBRAVADOR') {
+      fetchUserData()
+    }
+  }, [session, activeTab, fetchUserData])
 
   if (status === 'loading') {
     return (
