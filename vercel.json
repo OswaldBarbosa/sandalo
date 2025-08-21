@@ -17,5 +17,8 @@
     "env": {
       "PRISMA_GENERATE_DATAPROXY": "true"
     }
+  },
+  "prisma": {
+    "generate": true
   }
 }
