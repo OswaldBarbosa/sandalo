@@ -110,24 +110,26 @@ export default function AdminPage() {
         setCompletions(mappedCompletions)
         setStats(prev => ({ ...prev, totalCompletions: mappedCompletions.length }))
       }
-
-      // Find top performer
-      if (users.length > 0) {
-        const topUser = users.reduce((prev, current) =>
-          (prev.totalPoints > current.totalPoints) ? prev : current
-        )
-        setStats(prev => ({ ...prev, topPerformer: topUser.name || 'N/A' }))
-      }
     } catch (error) {
       console.error('Erro ao buscar dados:', error)
     }
-  }, [users])
+  }, [])
 
   useEffect(() => {
     if (session?.user.role === 'ADMIN') {
       fetchData()
     }
-  }, [session, activeTab, fetchData])
+  }, [session, activeTab])
+
+  // Atualizar estatísticas quando os dados mudarem
+  useEffect(() => {
+    if (users.length > 0) {
+      const topUser = users.reduce((prev, current) =>
+        (prev.totalPoints > current.totalPoints) ? prev : current
+      )
+      setStats(prev => ({ ...prev, topPerformer: topUser.name || 'N/A' }))
+    }
+  }, [users])
 
   const handleSuccess = () => {
     fetchData()
@@ -314,7 +316,7 @@ export default function AdminPage() {
 
           {/* Content */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <main className="max-w-7xl py-6 sm:px-6 lg:px-8">
               <div className="px-4 py-6 sm:px-0">
                 <TabsContent value="dashboard" className="space-y-6 min-h-[800px]">
                   {/* Cards de Estatísticas */}
