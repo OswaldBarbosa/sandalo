@@ -5,7 +5,7 @@ const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Iniciando seed do banco de dados...')
-  
+
   const adminEmail = 'admin@sandalo.com'
   const adminPassword = 'admin123'
 
@@ -27,7 +27,7 @@ async function main() {
           role: 'ADMIN'
         }
       })
-      
+
       console.log('✅ Admin criado com sucesso!')
       console.log(`📧 Email: ${adminEmail}`)
       console.log(`🔑 Senha: ${adminPassword}`)
@@ -38,7 +38,7 @@ async function main() {
 
     // Criar algumas atividades de exemplo
     console.log('📝 Criando atividades de exemplo...')
-    
+
     const activities = [
       {
         name: 'Leitura Bíblica Diária',
@@ -64,7 +64,7 @@ async function main() {
       const existing = await prisma.activity.findFirst({
         where: { name: activity.name }
       })
-      
+
       if (!existing) {
         await prisma.activity.create({
           data: activity
@@ -74,7 +74,7 @@ async function main() {
     }
 
     console.log('🎉 Seed concluído com sucesso!')
-    
+
   } catch (error) {
     console.error('❌ Erro durante o seed:', error)
     throw error
