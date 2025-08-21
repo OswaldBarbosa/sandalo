@@ -20,7 +20,7 @@ const updateActivitySchema = z.object({
 // PUT /api/activities/[id] - Atualizar atividade
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -29,7 +29,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const { id: activityId } = params
+    const { id: activityId } = await params
 
     if (!activityId) {
       return NextResponse.json({ error: 'ID da atividade não fornecido' }, { status: 400 })
@@ -107,13 +107,6 @@ export async function PUT(
 
     return NextResponse.json(updatedActivity)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Dados inválidos', details: error.issues },
-        { status: 400 }
-      )
-    }
-
     console.error('Erro ao atualizar atividade:', error)
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
@@ -125,7 +118,7 @@ export async function PUT(
 // DELETE /api/activities/[id] - Excluir atividade
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -134,7 +127,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const { id: activityId } = params
+    const { id: activityId } = await params
 
     if (!activityId) {
       return NextResponse.json({ error: 'ID da atividade não fornecido' }, { status: 400 })
@@ -149,7 +142,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Atividade não encontrada' }, { status: 404 })
     }
 
-    // Excluir atividade
+    // Verificar se há conclusões associadas
+    const completions = await prisma.userActivity.findMany({
+      where: { activityId: activityId }
+    })
+
+    if (completions.length > 0) {
+      return NextResponse.json(
+        { error: 'Não é possível excluir uma atividade que possui conclusões associadas' },
+        { status: 400 }
+      )
+    }
+
     await prisma.activity.delete({
       where: { id: activityId }
     })

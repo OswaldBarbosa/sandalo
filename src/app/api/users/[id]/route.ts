@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
-import { prisma } from '@/lib/prisma'
 import { hashPassword } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 // Schema de validação para atualização de usuário
@@ -16,16 +16,16 @@ const updateUserSchema = z.object({
 // PUT /api/users/[id] - Atualizar usuário
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.role || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const { id: userId } = params
+    const { id: userId } = await params
 
     if (!userId) {
       return NextResponse.json({ error: 'ID do usuário não fornecido' }, { status: 400 })
@@ -64,11 +64,11 @@ export async function PUT(
       role?: 'ADMIN' | 'DESBRAVADOR'
       passwordHash?: string
     } = {}
-    
+
     if (validatedData.name !== undefined) updateData.name = validatedData.name
     if (validatedData.email !== undefined) updateData.email = validatedData.email
     if (validatedData.role !== undefined) updateData.role = validatedData.role
-    
+
     // Hash da senha se fornecida e não vazia
     if (validatedData.password && validatedData.password.trim() !== '') {
       updateData.passwordHash = await hashPassword(validatedData.password)
@@ -107,16 +107,16 @@ export async function PUT(
 // DELETE /api/users/[id] - Excluir usuário
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user?.role || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
-    const { id: userId } = params
+    const { id: userId } = await params
 
     if (!userId) {
       return NextResponse.json({ error: 'ID do usuário não fornecido' }, { status: 400 })
@@ -131,15 +131,26 @@ export async function DELETE(
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
     }
 
-    // Não permitir excluir o próprio usuário admin
-    if (userId === session.user.id) {
+    // Impedir que o usuário se exclua
+    if (session.user.id === userId) {
       return NextResponse.json(
-        { error: 'Não é possível excluir seu próprio usuário' },
+        { error: 'Não é possível excluir sua própria conta' },
         { status: 400 }
       )
     }
 
-    // Excluir usuário
+    // Verificar se há conclusões associadas
+    const completions = await prisma.userActivity.findMany({
+      where: { userId: userId }
+    })
+
+    if (completions.length > 0) {
+      return NextResponse.json(
+        { error: 'Não é possível excluir um usuário que possui atividades concluídas' },
+        { status: 400 }
+      )
+    }
+
     await prisma.user.delete({
       where: { id: userId }
     })

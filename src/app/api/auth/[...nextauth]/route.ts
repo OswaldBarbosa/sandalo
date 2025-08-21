@@ -52,7 +52,7 @@ export const authOptions = {
             }
             return token
         },
-        async session({ session, token }: { session: { user?: { id: string; role: string } }; token: { role?: string; id?: string } }) {
+        async session({ session, token }: { session: any; token: { role?: string; id?: string } }) {
             if (token) {
                 // Garantir que o session.user existe
                 if (!session.user) {
