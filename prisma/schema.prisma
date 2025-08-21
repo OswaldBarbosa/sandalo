@@ -1,0 +1,111 @@
+// Datasource e gerador
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql" // ou "mysql" - altere conforme necessário
+  url      = env("DATABASE_URL")
+}
+
+// Enum de papéis
+enum Role {
+  ADMIN
+  DESBRAVADOR
+}
+
+// Tabelas padrão do NextAuth com campos extras em User
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String?  @unique
+  emailVerified DateTime?
+  image         String?
+  // Campo para login com senha (credenciais)
+  passwordHash  String?
+  role          Role     @default(DESBRAVADOR)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  activities    UserActivity[]
+  adjustments   PointsAdjustment[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Domínio do app
+model Activity {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  points      Int
+  dueDate     DateTime?
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  completions UserActivity[]
+}
+
+model UserActivity {
+  id           String   @id @default(cuid())
+  userId       String
+  activityId   String
+  completedAt  DateTime @default(now())
+  pointsAwarded Int
+  note         String?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt])
+  @@index([activityId])
+}
+
+model PointsAdjustment {
+  id        String   @id @default(cuid())
+  userId    String
+  points    Int      // pode ser negativo
+  reason    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
