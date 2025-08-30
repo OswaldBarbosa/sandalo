@@ -58,6 +58,14 @@ export default function AdminPage() {
     totalCompletions: 0,
     topPerformer: 'N/A'
   })
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  })
+  const [searchTerm, setSearchTerm] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('')
 
   useEffect(() => {
     if (status === 'loading') return
@@ -67,14 +75,32 @@ export default function AdminPage() {
     }
   }, [session, status, router])
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     try {
-      // Fetch users
-      const usersResponse = await fetch('/api/users')
+      // Fetch users with pagination and filters
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: pagination.limit.toString()
+      })
+      
+      if (searchTerm) {
+        params.append('search', searchTerm)
+      }
+      
+      if (roleFilter) {
+        params.append('role', roleFilter)
+      }
+      
+      const usersResponse = await fetch(`/api/users?${params.toString()}`)
       if (usersResponse.ok) {
         const usersData = await usersResponse.json()
         setUsers(usersData.users || [])
-        setStats(prev => ({ ...prev, totalUsers: usersData.users?.length || 0 }))
+        setPagination(prev => ({
+          ...prev,
+          total: usersData.pagination?.total || 0,
+          pages: usersData.pagination?.pages || 0
+        }))
+        setStats(prev => ({ ...prev, totalUsers: usersData.pagination?.total || 0 }))
       }
 
       // Fetch activities
@@ -113,13 +139,28 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Erro ao buscar dados:', error)
     }
-  }, [])
+  }
 
   useEffect(() => {
     if (session?.user.role === 'ADMIN') {
       fetchData()
     }
   }, [session, activeTab])
+
+  // Efeito separado para quando os filtros mudarem
+  useEffect(() => {
+    if (session?.user.role === 'ADMIN' && activeTab === 'users') {
+      // Reset para primeira página quando filtros mudarem
+      setPagination(prev => ({ ...prev, page: 1 }))
+    }
+  }, [searchTerm, roleFilter, pagination.limit, session?.user.role, activeTab])
+
+  // Efeito para quando a página mudar
+  useEffect(() => {
+    if (session?.user.role === 'ADMIN' && activeTab === 'users') {
+      fetchData()
+    }
+  }, [pagination.page, session?.user.role, activeTab])
 
   // Atualizar estatísticas quando os dados mudarem
   useEffect(() => {
@@ -133,6 +174,24 @@ export default function AdminPage() {
 
   const handleSuccess = () => {
     fetchData()
+  }
+
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({ ...prev, page: newPage }))
+  }
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+    setPagination(prev => ({ ...prev, page: 1 })) // Reset para primeira página
+  }
+
+  const handleRoleFilter = (role: string) => {
+    setRoleFilter(role)
+    setPagination(prev => ({ ...prev, page: 1 })) // Reset para primeira página
+  }
+
+  const handleLimitChange = (newLimit: number) => {
+    setPagination(prev => ({ ...prev, limit: newLimit, page: 1 })) // Reset para primeira página
   }
 
   if (status === 'loading') {
@@ -798,10 +857,44 @@ export default function AdminPage() {
                             Membros Registrados
                           </h3>
                           <Badge variant="outline" className="text-sm">
-                            {users.length} usuário{users.length !== 1 ? 's' : ''}
+                            {pagination.total} usuário{pagination.total !== 1 ? 's' : ''}
                           </Badge>
                         </div>
                         <UserForm onSuccess={handleSuccess} mode="create" />
+                      </div>
+
+                      {/* Controles de Busca e Filtros */}
+                      <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-muted/30 rounded-lg">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="🔍 Buscar por nome ou email..."
+                            value={searchTerm}
+                            onChange={(e) => handleSearch(e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <select
+                            value={roleFilter}
+                            onChange={(e) => handleRoleFilter(e.target.value)}
+                            className="px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          >
+                            <option value="">Todos os tipos</option>
+                            <option value="ADMIN">Administradores</option>
+                            <option value="DESBRAVADOR">Desbravadores</option>
+                          </select>
+                          <select
+                            value={pagination.limit}
+                            onChange={(e) => handleLimitChange(Number(e.target.value))}
+                            className="px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          >
+                            <option value={10}>10 por página</option>
+                            <option value={25}>25 por página</option>
+                            <option value={50}>50 por página</option>
+                            <option value={100}>100 por página</option>
+                          </select>
+                        </div>
                       </div>
 
                       <div className="rounded-md border shadow-sm">
@@ -862,11 +955,91 @@ export default function AdminPage() {
                         {users.length === 0 && (
                           <div className="text-center py-12 text-muted-foreground">
                             <div className="text-4xl mb-3">👥</div>
-                            <p className="text-lg font-medium mb-2">Nenhum usuário registrado</p>
-                            <p className="text-sm">Comece cadastrando o primeiro membro do clube!</p>
+                            <p className="text-lg font-medium mb-2">Nenhum usuário encontrado</p>
+                            <p className="text-sm">
+                              {searchTerm || roleFilter 
+                                ? 'Tente ajustar os filtros de busca' 
+                                : 'Comece cadastrando o primeiro membro do clube!'
+                              }
+                            </p>
                           </div>
                         )}
                       </div>
+
+                      {/* Controles de Paginação */}
+                      {pagination.pages > 1 && (
+                        <div className="flex items-center justify-between mt-6 p-4 bg-muted/30 rounded-lg">
+                          <div className="text-sm text-muted-foreground">
+                            Mostrando {((pagination.page - 1) * pagination.limit) + 1} a {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} usuários
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(1)}
+                              disabled={pagination.page === 1}
+                              className="px-2 py-1"
+                            >
+                              ⏮️ Primeira
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(pagination.page - 1)}
+                              disabled={pagination.page === 1}
+                              className="px-2 py-1"
+                            >
+                              ◀️ Anterior
+                            </Button>
+                            
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                                let pageNum
+                                if (pagination.pages <= 5) {
+                                  pageNum = i + 1
+                                } else if (pagination.page <= 3) {
+                                  pageNum = i + 1
+                                } else if (pagination.page >= pagination.pages - 2) {
+                                  pageNum = pagination.pages - 4 + i
+                                } else {
+                                  pageNum = pagination.page - 2 + i
+                                }
+                                
+                                return (
+                                  <Button
+                                    key={pageNum}
+                                    variant={pagination.page === pageNum ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handlePageChange(pageNum)}
+                                    className="px-3 py-1 min-w-[2.5rem]"
+                                  >
+                                    {pageNum}
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                            
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(pagination.page + 1)}
+                              disabled={pagination.page === pagination.pages}
+                              className="px-2 py-1"
+                            >
+                              Próxima ▶️
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePageChange(pagination.pages)}
+                              disabled={pagination.page === pagination.pages}
+                              className="px-2 py-1"
+                            >
+                              Última ⏭️
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>

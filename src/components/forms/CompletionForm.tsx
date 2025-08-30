@@ -54,7 +54,8 @@ export function CompletionForm({ onSuccess }: CompletionFormProps) {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/users?role=DESBRAVADOR')
+      // Buscar todos os desbravadores sem limitação de paginação
+      const response = await fetch('/api/users?role=DESBRAVADOR&limit=1000')
       if (response.ok) {
         const data = await response.json()
         setUsers(data.users || [])
